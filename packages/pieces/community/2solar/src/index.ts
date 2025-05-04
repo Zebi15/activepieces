@@ -1,5 +1,7 @@
 
     import { createPiece, PieceAuth } from "@activepieces/pieces-framework";
+    import { newLead } from './lib/triggers/new-lead';
+    import { updateLead } from './lib/actions/update-lead';
 
     export const twoSolarAuth = PieceAuth.SecretText({
       displayName: '2Solar API Key',
@@ -9,11 +11,12 @@
 
     export const twoSolar = createPiece({
       displayName: "2solar",
-      auth: PieceAuth.None(),
-      minimumSupportedRelease: '0.36.1',
-      logoUrl: "https://cdn.activepieces.com/pieces/2solar.png",
+      logoUrl: 'https://app.2solar.nl/favicon.ico',
       authors: ['Zebi'],
-      actions: [],
-      triggers: [],
+      minimumSupportedRelease: '0.5.0',
+      auth: twoSolarAuth,
+      triggers: [newLead],
+      actions: [updateLead],
     });
     
+    module.exports = { twoSolar };

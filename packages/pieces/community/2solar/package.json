@@ -1,4 +1,29 @@
 {
   "name": "@activepieces/piece-2solar",
-  "version": "0.0.1"
+  "version": "0.1.0",
+  "description": "2Solar integration for Activepieces",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "activepieces",
+    "2solar",
+    "integration"
+  ],
+  "dependencies": {
+    "@activepieces/pieces-framework": "^0.7.46",
+    "@activepieces/pieces-common": "^0.4.3",
+    "dayjs": "^1.11.7"
+  },
+  "devDependencies": {
+    "typescript": "^4.9.5",
+    "@types/node": "^18.0.0"
+  },
+  "peerDependencies": {
+    "@activepieces/pieces-framework": "^0.7.46",
+    "@activepieces/pieces-common": "^0.4.3"
+  }
 }

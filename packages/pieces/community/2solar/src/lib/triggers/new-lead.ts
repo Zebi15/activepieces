@@ -8,6 +8,7 @@ import {
   TriggerStrategy,
   createTrigger,
   Property,
+  PiecePropValueSchema,
 } from '@activepieces/pieces-framework';
 import { TwoSolarCommon } from '../common';
 import dayjs from 'dayjs';
@@ -77,9 +78,7 @@ const polling: Polling<
         data: lead
       };
     });
-  },
-  // Note: The polling interval is configured at the system level
-  // Activepieces by default polls every 5 minutes which matches our requirements
+  }
 };
 
 /**
@@ -119,12 +118,7 @@ export const newLead = createTrigger({
   
   // Test the trigger by fetching the most recent leads
   async test(context) {
-    return await pollingHelper.test(polling, {
-      store: context.store,
-      auth: context.auth,
-      propsValue: context.propsValue,
-      files: context.files
-    });
+    return await pollingHelper.test(polling, context);
   },
   
   // Initialize the trigger when it's enabled
@@ -147,11 +141,6 @@ export const newLead = createTrigger({
   
   // Regular polling execution to find new leads
   async run(context) {
-    return await pollingHelper.poll(polling, {
-      store: context.store,
-      auth: context.auth,
-      propsValue: context.propsValue,
-      files: context.files
-    });
+    return await pollingHelper.poll(polling, context);
   }
 });
