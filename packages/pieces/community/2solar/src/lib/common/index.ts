@@ -3,7 +3,7 @@ export const TwoSolarCommon = {
     
     // API endpoints
     endpoints: {
-      searchPersons: '/person/search/',
-      updatePerson: '/person/{id}/'
+      searchPersons: '/person/search',
+      updatePerson: '/person/{id}'
     }
   };

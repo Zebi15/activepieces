@@ -2,8 +2,8 @@
   "name": "@activepieces/piece-2solar",
   "version": "0.1.0",
   "description": "2Solar integration for Activepieces",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
   "scripts": {
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"

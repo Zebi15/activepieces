@@ -19,4 +19,3 @@
       actions: [updateLead],
     });
     
-    module.exports = { twoSolar };

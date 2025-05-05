@@ -8,74 +8,106 @@ import {
   TriggerStrategy,
   createTrigger,
   Property,
-  PiecePropValueSchema,
 } from '@activepieces/pieces-framework';
 import { TwoSolarCommon } from '../common';
 import dayjs from 'dayjs';
 
 /**
- * Interface representing a lead/person from the 2Solar API
- * Includes all standard fields and allows for additional properties
+ * Interface for 2Solar API lead/person response
  */
 interface TwoSolarLead {
-  id: number;
-  name: string;
-  phone_number?: string;
+  request_id: string;
+  person_id: string;
+  request_date: string;
+  first_name?: string;
+  infix?: string;
+  last_name?: string;
+  mobile?: string;
+  telephone?: string;
   email?: string;
   address?: string;
-  lead_type?: string;
-  product_type?: string;
-  created_date: string;
-  [key: string]: any; // Allow any additional fields from the API
+  number?: string;
+  postcode?: string;
+  city?: string;
+  request_type_name?: string;
+  [key: string]: any;
 }
 
 /**
  * Polling configuration for fetching new leads from 2Solar API
- * Uses time-based deduplication to prevent duplicate processing of leads
- * This polls every 5 minutes as per requirements
  */
-const polling: Polling<
-  string, // Auth type (API key as string)
-  { lookbackPeriod?: number } // Props type with optional lookbackPeriod
-> = {
+const polling: Polling<string, { lookbackPeriod?: number }> = {
   strategy: DedupeStrategy.TIMEBASED,
   items: async ({ auth, propsValue, lastFetchEpochMS }) => {
-    let fetchFrom: string;
+    console.log('2Solar: Fetching new leads');
     
-    // If this is the first run, look back by the specified period
-    if (!lastFetchEpochMS) {
-      const defaultLookback = propsValue.lookbackPeriod || 24;
-      const date = new Date();
-      date.setHours(date.getHours() - defaultLookback);
-      fetchFrom = date.toISOString().replace('T', ' ').replace('Z', '');
-    } else {
-      // For subsequent runs, use the last fetch time
-      fetchFrom = new Date(lastFetchEpochMS).toISOString().replace('T', ' ').replace('Z', '');
-    }
+    // Calculate date range for fetching leads
+    // Default to looking back 30 days on first run to catch any existing leads
+    const defaultLookback = propsValue.lookbackPeriod || 720; // 30 days in hours
+    const fetchFrom = lastFetchEpochMS 
+      ? dayjs(lastFetchEpochMS) 
+      : dayjs().subtract(defaultLookback, 'hour');
     
-    // Call the 2Solar API to get new leads
-    const response = await fetch(
-      `${TwoSolarCommon.baseUrl}${TwoSolarCommon.endpoints.searchPersons}?date_created_from=${encodeURIComponent(fetchFrom)}`,
-      {
-        method: 'GET',
-        headers: {
-          'accept': 'application/json',
-          'Authorization': `Bearer ${auth}`
-        }
+    const dateParam = fetchFrom.format('YYYY-MM-DD HH:mm:ss');
+    const apiUrl = `${TwoSolarCommon.baseUrl}${TwoSolarCommon.endpoints.searchPersons}/?date_created_from=${encodeURIComponent(dateParam)}`;
+    
+    console.log(`2Solar: Searching for leads created after ${dateParam}`);
+    
+    // Fetch data from 2Solar API
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json',
+        'Authorization': `Bearer ${auth}`
       }
-    );
+    });
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch leads from 2Solar: ${response.statusText}`);
+      throw new Error(`Failed to fetch leads: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
     
-    // Map the results and return them with timestamps for deduplication
-    return (data.results || []).map((lead: TwoSolarLead) => {
+    // Handle API error response
+    if (data.error) {
+      console.log('2Solar API returned error:', data.error);
+      return [];
+    }
+    
+    // Extract leads from response
+    const leads: TwoSolarLead[] = [];
+    for (const key in data) {
+      if (key !== 'error' && key !== '0' && data[key] && typeof data[key] === 'object') {
+        leads.push(data[key]);
+      }
+    }
+    
+    console.log(`2Solar: Found ${leads.length} leads`);
+    
+    // Transform leads to required format
+    return leads.map((lead) => {
+      const fullName = [lead.first_name, lead.infix, lead.last_name]
+        .filter(Boolean)
+        .join(' ');
+      
+      const fullAddress = [
+        lead.address && lead.number ? `${lead.address} ${lead.number}` : lead.address,
+        lead.postcode,
+        lead.city
+      ].filter(Boolean).join(', ');
+      
       return {
-        epochMilliSeconds: dayjs(lead.created_date).valueOf(),
-        data: lead
+        epochMilliSeconds: dayjs(lead.request_date).valueOf(),
+        data: {
+          id: lead.request_id,
+          name: fullName,
+          phone_number: lead.mobile || lead.telephone || '',
+          email: lead.email || '',
+          address: fullAddress,
+          lead_type: lead.request_type_name || '',
+          product_type: lead.request_type_name || '',
+          created_date: lead.request_date
+        }
       };
     });
   }
@@ -83,11 +115,8 @@ const polling: Polling<
 
 /**
  * New Lead Trigger
- * 
  * Polls the 2Solar API every 5 minutes to fetch new leads/persons.
  * Implements deduplication based on creation time to prevent duplicate processing.
- * Returns all fields received from the API including name, phone number, email, 
- * address, lead type, product type, and any additional fields.
  */
 export const newLead = createTrigger({
   auth: twoSolarAuth,
@@ -98,48 +127,35 @@ export const newLead = createTrigger({
     lookbackPeriod: Property.Number({
       displayName: 'Initial Lookback Period (hours)',
       description: 'How many hours to look back for leads on the first run',
-      defaultValue: 24,
+      defaultValue: 720, 
       required: false,
     }),
   },
   type: TriggerStrategy.POLLING,
   
-  // Sample data to show in the UI
   sampleData: {
-    id: 12345,
-    name: 'John Doe',
-    phone_number: '+31612345678',
-    email: 'john.doe@example.com',
-    address: '123 Main St, Amsterdam',
-    lead_type: 'residential',
-    product_type: 'solar panels',
-    created_date: '2024-05-01 10:30:00'
+    id: "5955400",
+    name: "T. de Mol",
+    phone_number: "+31610687100",
+    email: "tim@nexva.io",
+    address: "Langegracht 70, 2312NV, Leiden",
+    lead_type: "Zonnepanelen",
+    product_type: "Zonnepanelen",
+    created_date: "2025-04-02 11:23:21"
   },
   
-  // Test the trigger by fetching the most recent leads
   async test(context) {
     return await pollingHelper.test(polling, context);
   },
   
-  // Initialize the trigger when it's enabled
   async onEnable(context) {
-    await pollingHelper.onEnable(polling, {
-      store: context.store,
-      auth: context.auth,
-      propsValue: context.propsValue
-    });
+    await pollingHelper.onEnable(polling, context);
   },
   
-  // Clean up when the trigger is disabled
   async onDisable(context) {
-    await pollingHelper.onDisable(polling, {
-      store: context.store,
-      auth: context.auth,
-      propsValue: context.propsValue
-    });
+    await pollingHelper.onDisable(polling, context);
   },
   
-  // Regular polling execution to find new leads
   async run(context) {
     return await pollingHelper.poll(polling, context);
   }

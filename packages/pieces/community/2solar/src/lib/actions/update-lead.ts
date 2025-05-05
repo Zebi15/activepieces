@@ -10,7 +10,7 @@ export const updateLead = createAction({
   props: {
     leadId: Property.Number({
       displayName: 'Lead ID',
-      description: 'The ID of the lead to update',
+      description: 'The ID of the lead to update (typically the request_id)',
       required: true,
     }),
     callDateTime: Property.DateTime({
@@ -36,7 +36,6 @@ export const updateLead = createAction({
   },
   
   async run(context) {
-    // Access auth from context.auth instead of context.propsValue
     const { leadId, callDateTime, callDuration, conversationSummary, keyOutcomes } = context.propsValue;
     const auth = context.auth;
     
@@ -69,7 +68,7 @@ export const updateLead = createAction({
     
     // Call the 2Solar API to update the lead
     const response = await fetch(endpoint, {
-      method: 'PATCH',  // Using PATCH to update only the provided fields
+      method: 'PUT',  // Changed from PATCH to PUT
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${auth}`
@@ -78,7 +77,8 @@ export const updateLead = createAction({
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to update lead in 2Solar: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to update lead in 2Solar: ${response.status} ${response.statusText} - ${errorText}`);
     }
     
     // Return the updated lead data
