@@ -458,7 +458,7 @@ export const updateLead = createAction({
     }
     
     // Prepare the API endpoint
-    const endpoint = `${TwoSolarCommon.baseUrl}${TwoSolarCommon.endpoints.updatePerson}`.replace('{id}', props.leadId.toString());
+    const endpoint = `${TwoSolarCommon.baseUrl}${TwoSolarCommon.endpoints.updatePerson}`.replace('{request_id}', props.leadId.toString());
     
     // Call the 2Solar API to update the lead
     const response = await fetch(endpoint, {
