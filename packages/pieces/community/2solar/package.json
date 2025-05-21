@@ -1,6 +1,6 @@
 {
-  "name": "@activepieces/piece-2solar",
-  "version": "0.1.0",
+  "name": "@integration-tools/piece-2solar",
+  "version": "1.0.1",
   "description": "2Solar integration for Activepieces",
   "main": "src/index.js",
   "types": "src/index.d.ts",

@@ -329,27 +329,45 @@ export const updateLead = createAction({
       required: false,
     }),
     
-    // Call Information (from original requirements)
-    callDateTime: Property.DateTime({
-      displayName: 'Call Date and Time',
-      description: 'The date and time of the call',
-      required: false,
+    // Dynamic Custom Fields
+    customFieldsSection: Property.MarkDown({
+      value: '## Dynamic Custom Fields\nAdd any number of custom fields with this builder.',
     }),
-    callDuration: Property.Number({
-      displayName: 'Call Duration (minutes)',
-      description: 'The duration of the call in minutes',
+    
+    // Dynamic Custom Fields Builder
+    customFieldsArray: Property.Array({
+      displayName: 'Custom Fields',
+      description: 'Add any number of custom fields you need',
       required: false,
+      properties: {
+        fieldName: Property.ShortText({
+          displayName: 'Field Name',
+          description: 'Name of the custom field (how it will appear in the API)',
+          required: true,
+        }),
+        fieldType: Property.StaticDropdown({
+          displayName: 'Field Type',
+          description: 'Type of the custom field',
+          required: true,
+          options: {
+            options: [
+              { label: 'Text', value: 'text' },
+              { label: 'Number', value: 'number' },
+              { label: 'Boolean (Yes/No)', value: 'boolean' },
+              { label: 'Date (YYYY-MM-DD)', value: 'date' },
+            ],
+          },
+          defaultValue: 'text',
+        }),
+        fieldValue: Property.ShortText({
+          displayName: 'Field Value',
+          description: 'Value for this field (for dates use YYYY-MM-DD format, for boolean use "yes" or "no")',
+          required: true,
+        }),
+      },
     }),
-    conversationSummary: Property.LongText({
-      displayName: 'Conversation Summary',
-      description: 'A summary of the conversation with the lead',
-      required: false,
-    }),
-    keyOutcomes: Property.LongText({
-      displayName: 'Key Outcomes and Notes',
-      description: 'Key outcomes and notes from the interaction',
-      required: false,
-    }),
+    
+
   },
   
   async run(context) {
@@ -441,16 +459,49 @@ export const updateLead = createAction({
     if (props.energyExpiryDate !== undefined) { extraFields['energy_expiry_date'] = props.energyExpiryDate; hasExtraFields = true; }
     if (props.serviceOorzaak !== undefined) { extraFields['service_oorzaak'] = props.serviceOorzaak; hasExtraFields = true; }
     
-    // Add extra_fields to the update data if any were specified
-    if (hasExtraFields) {
-      updateData['extra_fields'] = extraFields;
+    // Process the dynamically added custom fields
+    if (props.customFieldsArray && Array.isArray(props.customFieldsArray)) {
+      // Loop through each custom field entry
+      props.customFieldsArray.forEach((customField: any) => {
+        if (customField.fieldName && customField.fieldValue !== undefined) {
+          // Process the value based on the field type
+          let processedValue = customField.fieldValue;
+          
+          // Convert value according to field type if needed
+          switch (customField.fieldType) {
+            case 'number':
+              // Try to convert to number
+              const numValue = Number(customField.fieldValue);
+              if (!isNaN(numValue)) {
+                processedValue = numValue;
+              }
+              break;
+            case 'boolean':
+              // Convert to yes/no format expected by API
+              if (customField.fieldValue.toLowerCase() === 'true' || 
+                  customField.fieldValue.toLowerCase() === 'yes' || 
+                  customField.fieldValue === '1') {
+                processedValue = 'yes';
+              } else {
+                processedValue = 'no';
+              }
+              break;
+            case 'date':
+              // Ensure date is in proper format (already handled by input as YYYY-MM-DD)
+              processedValue = customField.fieldValue;
+              break;
+          }
+          
+          extraFields[customField.fieldName] = processedValue;
+          hasExtraFields = true;
+        }
+      });
     }
     
-    // Call Information
-    if (props.callDateTime !== undefined) updateData['call_date_time'] = props.callDateTime;
-    if (props.callDuration !== undefined) updateData['call_duration'] = props.callDuration;
-    if (props.conversationSummary !== undefined) updateData['conversation_summary'] = props.conversationSummary;
-    if (props.keyOutcomes !== undefined) updateData['key_outcomes'] = props.keyOutcomes;
+    // Add custom_fields to the update data if any were specified
+    if (hasExtraFields) {
+      updateData['custom_fields'] = extraFields;
+    }
     
     // Ensure we have data to update
     if (Object.keys(updateData).length === 0) {
@@ -459,6 +510,9 @@ export const updateLead = createAction({
     
     // Prepare the API endpoint
     const endpoint = `${TwoSolarCommon.baseUrl}${TwoSolarCommon.endpoints.updatePerson}`.replace('{request_id}', props.leadId.toString());
+    
+    console.log('Updating lead at endpoint:', endpoint);
+    console.log('Update data:', JSON.stringify(updateData, null, 2));
     
     // Call the 2Solar API to update the lead
     const response = await fetch(endpoint, {
@@ -476,6 +530,9 @@ export const updateLead = createAction({
     }
     
     // Return the updated lead data
-    return await response.json();
+    const responseData = await response.json();
+    console.log('API response:', JSON.stringify(responseData, null, 2));
+    
+    return responseData;
   },
 });
